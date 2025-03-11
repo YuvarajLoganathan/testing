@@ -58,9 +58,9 @@ function writeCsv(filePath, data) {
 
 function calculateDistance(coord1, coord2) {
   try {
-    // console.log("Entered calculateDistance");
-    // console.log("Coordinate 1:", JSON.stringify(coord1));
-    // console.log("Coordinate 2:", JSON.stringify(coord2));
+    console.log("Entered calculateDistance");
+    console.log("Coordinate 1:", JSON.stringify(coord1));
+    console.log("Coordinate 2:", JSON.stringify(coord2));
 
     // Validate input coordinates
     if (!coord1 || !coord2) {
@@ -104,13 +104,11 @@ function calculateDistance(coord1, coord2) {
     throw error; // Re-throw to allow caller to handle the error
   }
 }
-
-
-async function getRoadRouteDistance(origin, destination, originPincode) {
+async function getRoadRouteDistance(origin, destination, originPincode,retryCount = 0) {
   try {
-    // console.log("Entered getRoadRouteDistance");
-    // console.log("Origin:", JSON.stringify(origin));
-    // console.log("Destination:", JSON.stringify(destination));
+    console.log("Entered getRoadRouteDistance");
+    console.log("Origin:", JSON.stringify(origin));
+    console.log("Destination:", JSON.stringify(destination));
 
     if (!origin || !destination) {
       throw new Error("Invalid coordinates: Both origin and destination must be provided");
@@ -119,43 +117,57 @@ async function getRoadRouteDistance(origin, destination, originPincode) {
     const { lat: originLat, lng: originLng } = origin;
     const { lat: destLat, lng: destLng } = destination;
 
-    if (typeof originLat === 'number' && typeof originLng === 'number') {
+    if (typeof originLat === "number" && typeof originLng === "number") {
       // Store the origin coordinate in the map if it doesn't already exist
       if (!originCoordinatesMap.has(originPincode)) {
         originCoordinatesMap.set(originPincode, { lat: originLat, lng: originLng });
       }
     }
 
+    if (Math.abs(originLng - destLng) > 50) {
+      console.error("Skipping route: Possible cross-continent request.");
+      return null; // Skip OSRM API call
+    }
+
     const response = await axios.get(
-      `${OSRM_BASE_URL}/${originLng},${originLat};${destLng},${destLat}`,
+      `${OSRM_BASE_URL},${originLng},${originLat};${destLng},${destLat}`,
       {
         params: {
           overview: "false",
           annotations: "distance",
         },
-        timeout: 10000,
+        timeout: 30000,
       }
     );
 
     const routes = response.data.routes;
     if (routes && routes.length > 0) {
       const roadDistance = routes[0].distance / 1000; // Convert meters to kilometers
-      // console.log(`Road route distance: ${roadDistance.toFixed(2)} kilometers`);
+      console.log(`Road route distance: ${roadDistance.toFixed(2)} kilometers`);
       return roadDistance;
     }
 
     console.warn("No routes found in OSRM API response");
     return null;
   } catch (error) {
-    console.error("Error in getRoadRouteDistance:", error.message);
+    console.error(`Error in getRoadRouteDistance (attempt ${retryCount + 1}):`, error.message);
+    
+    // Retry logic with exponential backoff
+    if (retryCount < 3) { // Maximum 3 retries
+      const delayMs = 2000 * Math.pow(2, retryCount); // 2s, 4s, 8s
+      console.log(`Retrying after ${delayMs}ms...`);
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+      return getRoadRouteDistance(origin, destination, originPincode, retryCount + 1);
+    }
     throw error;
   }
 }
 
 
+
 async function getCoordinates(pincode) {
   try {
-    // console.log("Entered getCoordinates");
+    console.log("Entered getCoordinates");
     const response = await axios.get(NOMINATIM_BASE_URL, {
       params: {
         q: pincode,
@@ -181,7 +193,7 @@ async function getCoordinates(pincode) {
 }
 
 async function getDirectionsRoute(origin, destinations, originCoordinatesList) {
-  // console.log("Entered getDirectionsRoute");
+  console.log("Entered getDirectionsRoute");
   try {
     // Sort destinations by stop order
     const sortedDestinations = destinations.sort((a, b) => a.Stop_Order - b.Stop_Order);
@@ -190,9 +202,8 @@ async function getDirectionsRoute(origin, destinations, originCoordinatesList) {
       `${origin.lng},${origin.lat}`,
       ...originCoordinatesList.map(dest => `${dest.lng},${dest.lat}`)
     ];
-
     const response = await axios.get(
-      `${OSRM_BASE_URL}/${coordinates.join(';')}`,
+      `${OSRM_BASE_URL},${coordinates.join(';')}`,
       {
         params: {
           overview: 'full',
@@ -202,7 +213,6 @@ async function getDirectionsRoute(origin, destinations, originCoordinatesList) {
         }
       }
     );
-
     // Extract route data with detailed information
     const route = response.data.routes[0];
 
@@ -220,7 +230,6 @@ async function getDirectionsRoute(origin, destinations, originCoordinatesList) {
         }))
       };
     }
-
     return null;
   } catch (error) {
     console.error("Error fetching route directions:", error.message);
@@ -229,7 +238,7 @@ async function getDirectionsRoute(origin, destinations, originCoordinatesList) {
 }
 
 function normalizeClusterIds(clusters) {
-  // console.log("Entered normalizeClusterIds");
+  console.log("Entered normalizeClusterIds");
   // Find unique cluster IDs and sort them
   const uniqueClusterIds = [...new Set(clusters.map(cluster => cluster.id))].sort((a, b) => a - b);
 
@@ -254,7 +263,7 @@ function normalizeClusterIds(clusters) {
 }
 
 function calculateSpread(cluster) {
-  // console.log("Entered calculateSpread");
+  console.log("Entered calculateSpread");
   const coordinates = cluster.deliveries.map((delivery) => delivery.coordinates);
   let maxDistance = 0;
 
@@ -268,10 +277,10 @@ function calculateSpread(cluster) {
 }
 
 function determineTruckModel(clusterVolume, clusterWeight, truckModels) {
-  // console.log("Entered determineTruckModel");
-  // console.log("Cluster Volume:", clusterVolume);
-  // console.log("Cluster Weight:", clusterWeight);
-  // console.log("Truck Models:", truckModels);
+  console.log("Entered determineTruckModel");
+  console.log("Cluster Volume:", clusterVolume);
+  console.log("Cluster Weight:", clusterWeight);
+  console.log("Truck Models:", truckModels);
 
   let selectedTruck = null;
 
@@ -284,17 +293,17 @@ function determineTruckModel(clusterVolume, clusterWeight, truckModels) {
     const volumeCapacity = parseFloat(truck["usable_volume_cft"]);
     const weightCapacity = parseFloat(truck["payload_kgs"]);
 
-    // console.log(`Checking truck: ${truck["truck_name"]}, Volume Capacity: ${volumeCapacity}, Weight Capacity: ${weightCapacity}`);
+    console.log(`Checking truck: ${truck["truck_name"]}, Volume Capacity: ${volumeCapacity}, Weight Capacity: ${weightCapacity}`);
 
     if (clusterVolume <= volumeCapacity && clusterWeight <= weightCapacity) {
       selectedTruck = truck["truck_name"];
-      // console.log(`Selected Truck: ${selectedTruck}`);
+      console.log(`Selected Truck: ${selectedTruck}`);
       break;
     }
   }
 
   if (!selectedTruck) {
-    // console.log("No suitable truck found for volume:", clusterVolume, "and weight:", clusterWeight);
+    console.log("No suitable truck found for volume:", clusterVolume, "and weight:", clusterWeight);
   }
 
   return selectedTruck;
@@ -365,7 +374,7 @@ async function createGeographicalClusters(deliveries) {
 
 
 function splitCluster(cluster, startingClusterId) {
-  // console.log("Entered splitCluster");
+  console.log("Entered splitCluster");
   const finalClusters = [];
   let currentClusterId = startingClusterId;
 
@@ -425,7 +434,7 @@ function splitCluster(cluster, startingClusterId) {
 
 
 function calculateDeliveryDays(totalDistance, dailyTravelDistance) {
-  //  console.log("Entered calculateDeliveryDays");
+   console.log("Entered calculateDeliveryDays");
   // Ensure the inputs are valid numbers and not zero
   totalDistance = parseFloat(totalDistance) || 0;
   dailyTravelDistance = parseFloat(dailyTravelDistance) || 100; // Default to max trip distance for TATA ACE
@@ -447,7 +456,7 @@ function calculateDeliveryDays(totalDistance, dailyTravelDistance) {
 
 
 async function assignTrucksToCluster(cluster, truckModels) {
-  // console.log("Entered assignTrucksToCluster");
+  console.log("Entered assignTrucksToCluster");
 
   // First, try to determine the initial truck based on volume and weight
   let truckModel = determineTruckModel(cluster.totalVolume, cluster.totalWeight, truckModels);
@@ -528,34 +537,34 @@ async function assignTrucksToCluster(cluster, truckModels) {
       cluster.totalRouteDistance = totalRouteDistance;
 
       // Log cluster details
-      // console.log(`Cluster ${cluster.id} Details:`);
-      // console.log(`- Assigned Truck: ${truckModel}`);
-      // console.log(`- Total Route Distance: ${totalRouteDistance.toFixed(2)} km`);
-      // console.log(`- Max Trip Distance: ${maxTripDistance} km`);
-      // console.log(`- Total Deliveries: ${cluster.deliveries.length}`);
-      // console.log(`- Total Volume: ${cluster.totalVolume.toFixed(2)} CFT`);
-      // console.log(`- Total Weight: ${cluster.totalWeight.toFixed(2)} kg`);
-      // console.log(`- Total Delivery Days: ${totalDeliveryDays}`);
+      console.log(`Cluster ${cluster.id} Details:`);
+      console.log(`- Assigned Truck: ${truckModel}`);
+      console.log(`- Total Route Distance: ${totalRouteDistance.toFixed(2)} km`);
+      console.log(`- Max Trip Distance: ${maxTripDistance} km`);
+      console.log(`- Total Deliveries: ${cluster.deliveries.length}`);
+      console.log(`- Total Volume: ${cluster.totalVolume.toFixed(2)} CFT`);
+      console.log(`- Total Weight: ${cluster.totalWeight.toFixed(2)} kg`);
+      console.log(`- Total Delivery Days: ${totalDeliveryDays}`);
     } else {
       cluster.deliveries.forEach((delivery) => {
         delivery.Assigned_Truck = "Not Assigned";
         delivery._calculatedDeliveryDays = null;
       });
-      // console.log(`Cluster exceeds truck capacity. Volume: ${cluster.totalVolume}, Weight: ${cluster.totalWeight}`);
+      console.log(`Cluster exceeds truck capacity. Volume: ${cluster.totalVolume}, Weight: ${cluster.totalWeight}`);
     }
   } else {
     cluster.deliveries.forEach((delivery) => {
       delivery.Assigned_Truck = "Not Assigned";
       delivery._calculatedDeliveryDays = null;
     });
-    // console.log(`No suitable truck found for cluster. Volume: ${cluster.totalVolume}, Weight: ${cluster.totalWeight}`);
+    console.log(`No suitable truck found for cluster. Volume: ${cluster.totalVolume}, Weight: ${cluster.totalWeight}`);
   }
 }
 
 
 
 function getDailyTravelDistance(truckModel) {
-  // console.log("Entered getDailyTravelDistance");
+  console.log("Entered getDailyTravelDistance");
   switch (truckModel) {
     case "TATA ACE":
       return 100; // Total trip distance, not daily distance
@@ -577,7 +586,7 @@ function getDailyTravelDistance(truckModel) {
 
 
 async function optimizeStopOrder(cluster) {
-  // console.log("Entered optimizeStopOrder");
+  console.log("Entered optimizeStopOrder");
   const destinationCoords = cluster.deliveries.map((delivery) => delivery.coordinates);
 
   let currentStopIndex = 0;
@@ -733,56 +742,81 @@ app.post(
 );
 
 
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-
-// Update the get-optimized-clusters route to use _calculatedDeliveryDays
+// Modified function with rate limiting
 app.get('/get-optimized-clusters', async (req, res) => {
   try {
-    const clustersWithRoutes = await Promise.all(globalClusters.map(async (cluster) => {
-      const routeDetails = await getDirectionsRoute(
-        cluster.originCoordinates,
-        cluster.deliveries,
-        cluster.originCoordinatesList
-      );
+    const clustersWithRoutes = [];
+    
+    // Process each cluster sequentially instead of in parallel
+    for (const cluster of globalClusters) {
+      // Add a delay between requests to respect rate limits
+      await delay(1200); // 1.2 seconds to be safe
+      
+      try {
+        const routeDetails = await getDirectionsRoute(
+          cluster.originCoordinates,
+          cluster.deliveries,
+          cluster.originCoordinatesList
+        );
+        
+        const totalVolume = cluster.deliveries.reduce((sum, delivery) => sum + delivery.Volume, 0);
+        const totalWeight = cluster.deliveries.reduce((sum, delivery) => sum + delivery.Weight, 0);
+        const deliveryDays = cluster.deliveries.reduce((total, delivery) => total + (delivery._calculatedDeliveryDays || 0), 0);
 
-      const totalVolume = cluster.deliveries.reduce((sum, delivery) => sum + delivery.Volume, 0);
-      const totalWeight = cluster.deliveries.reduce((sum, delivery) => sum + delivery.Weight, 0);
-      const deliveryDays = cluster.deliveries.reduce((total, delivery) => total + (delivery._calculatedDeliveryDays || 0), 0);
-
-      return {
-        clusterId: cluster.id,
-        originCoordinates: cluster.originCoordinates,
-        allOriginCoordinates: cluster.originCoordinatesList, // Include all origin coordinates
-        destinationCoordinates: cluster.destinationCoordinates,
-        selectedTruck: cluster.deliveries[0]?.Assigned_Truck || "Not Assigned",
-        totalDeliveryDays: deliveryDays,
-        totalVolume: totalVolume,
-        totalWeight: totalWeight,
-        routePolyline: routeDetails?.geometry || null,
-        routeDetails: {
-          totalDistance: routeDetails?.distance || 0,
-          totalDuration: routeDetails?.duration || 0,
-          waypoints: routeDetails?.waypoints || [],
-        },
-        deliveries: cluster.deliveries.map(delivery => ({
-          deliveryId: delivery.delivery_id,
-          originPincode: delivery["Origin Pincode"],
-          destinationPincode: delivery["Destination Pincode"],
-          volume: delivery.Volume,
-          weight: delivery.Weight,
-          assignedTruck: delivery.Assigned_Truck,
-          stopOrder: delivery.Stop_Order,
-          deliveryDays: delivery._calculatedDeliveryDays,
-          coordinates: delivery.coordinates
-        })),
-      };
-    }));
+        clustersWithRoutes.push({
+          // Same structure as before
+          clusterId: cluster.id,
+          originCoordinates: cluster.originCoordinates,
+          allOriginCoordinates: cluster.originCoordinatesList,
+          destinationCoordinates: cluster.destinationCoordinates,
+          selectedTruck: cluster.deliveries[0]?.Assigned_Truck || "Not Assigned",
+          totalDeliveryDays: deliveryDays,
+          totalVolume: totalVolume,
+          totalWeight: totalWeight,
+          routePolyline: routeDetails?.geometry || null,
+          routeDetails: {
+            totalDistance: routeDetails?.distance || 0,
+            totalDuration: routeDetails?.duration || 0,
+            waypoints: routeDetails?.waypoints || [],
+          },
+          deliveries: cluster.deliveries.map(delivery => ({
+            deliveryId: delivery.delivery_id,
+            originPincode: delivery["Origin Pincode"],
+            destinationPincode: delivery["Destination Pincode"],
+            volume: delivery.Volume,
+            weight: delivery.Weight,
+            assignedTruck: delivery.Assigned_Truck,
+            stopOrder: delivery.Stop_Order,
+            deliveryDays: delivery._calculatedDeliveryDays,
+            coordinates: delivery.coordinates
+          })),
+        });
+      } catch (routeError) {
+        console.error(`Error getting route for cluster ${cluster.id}:`, routeError.message);
+        // Add the cluster with null route data rather than failing the entire request
+        clustersWithRoutes.push({
+          clusterId: cluster.id,
+          // Basic data without route information
+          originCoordinates: cluster.originCoordinates,
+          routePolyline: null,
+          routeDetails: { totalDistance: 0, totalDuration: 0, waypoints: [] },
+          deliveries: cluster.deliveries.map(delivery => ({
+            deliveryId: delivery.delivery_id,
+            // Other delivery details
+          })),
+          error: routeError.message
+        });
+      }
+    }
 
     res.json({
       clusters: clustersWithRoutes,
       totalClusters: clustersWithRoutes.length,
       totalDeliveries: clustersWithRoutes.reduce((sum, cluster) => sum + cluster.deliveries.length, 0),
     });
+    console.log("function completed");
   } catch (error) {
     console.error("Error fetching cluster routes:", error.message);
     res.status(500).json({
@@ -791,7 +825,6 @@ app.get('/get-optimized-clusters', async (req, res) => {
     });
   }
 });
-
 
 // Add a new route to serve the optimized CSV file
 app.get('/download-optimized-csv', async (req, res) => {
