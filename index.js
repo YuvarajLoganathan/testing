@@ -130,7 +130,7 @@ async function getRoadRouteDistance(origin, destination, originPincode,retryCoun
     }
 
     const response = await axios.get(
-      `${OSRM_BASE_URL},${originLng},${originLat};${destLng},${destLat}`,
+      `${OSRM_BASE_URL}/${originLng},${originLat};${destLng},${destLat}`,
       {
         params: {
           overview: "false",
@@ -203,7 +203,7 @@ async function getDirectionsRoute(origin, destinations, originCoordinatesList) {
       ...originCoordinatesList.map(dest => `${dest.lng},${dest.lat}`)
     ];
     const response = await axios.get(
-      `${OSRM_BASE_URL},${coordinates.join(';')}`,
+      `${OSRM_BASE_URL}/${coordinates.join(';')}`,
       {
         params: {
           overview: 'full',
