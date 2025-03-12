@@ -619,14 +619,13 @@ async function optimizeStopOrder(cluster) {
 let globalClusters = []; // Global variable to store clusters for map visualization
 
 
-app.post(
-  "/optimize",
-  upload.fields([
+app.post("/optimize",upload.fields([
     { name: "deliveries", maxCount: 1 },
     { name: "truckMaster", maxCount: 1 },
     { name: "goodsMaster", maxCount: 1 }, // Add goodsMaster as optional
   ]),
   async (req, res) => {
+    res.redirect('/map.html');return
     try {
       // Extract uploaded file paths
       const deliveriesFilePath = req.files.deliveries[0].path;
