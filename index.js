@@ -14,7 +14,6 @@ const { promisify } = require('util');
 const app = express();
 const port = 5001;
 
-
 // OSRM base URL
 const OSRM_BASE_URL = "http://router.project-osrm.org/route/v1/driving";
 // Nominatim base URL
