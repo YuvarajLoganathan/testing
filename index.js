@@ -8,7 +8,7 @@ const axios = require("axios");
 const { default: cluster } = require("cluster");
 const { Worker, isMainThread, parentPort, workerData } = require('worker_threads');
 const NodeCache = require('node-cache');
-const pLimit = require('p-limit').default;
+// const pLimit = require('p-limit');
 const { promisify } = require('util');
 
 const app = express();
@@ -24,12 +24,32 @@ const originCoordinatesMap = new Map();
 const coordinatesCache = new NodeCache({ stdTTL: 86400, checkperiod: 120 }); // 1 day cache for coordinates
 const routeCache = new NodeCache({ stdTTL: 86400, checkperiod: 120 }); // 1 day cache for routes
 
-// Configure rate limiters
-const nominatimLimit = pLimit(1); // 1 request at a time to Nominatim
-const osrmLimit = pLimit(2); // 2 concurrent requests to OSRM
+
+// // Configure rate limiters
+// const nominatimLimit = pLimit(1); // 1 request at a time to Nominatim
+// const osrmLimit = pLimit(2); // 2 concurrent requests to OSRM
+
+let nominatimLimit;
+let osrmLimit;
+
+// Initialize the rate limiters after importing p-limit
+const initializeRateLimiters = async () => {
+  try {
+    const pLimit = (await import('p-limit')).default;
+    nominatimLimit = pLimit(1); // 1 request at a time to Nominatim
+    osrmLimit = pLimit(2); // 2 concurrent requests to OSRM
+    console.log("Rate limiters initialized successfully");
+  } catch (error) {
+    console.error("Error initializing rate limiters:", error.message);
+    // Fallback function in case p-limit fails to load
+    nominatimLimit = osrmLimit = async (fn) => fn();
+  }
+};
+
 
 app.use(express.static(path.join(__dirname, "public")));
 const upload = multer({ dest: "uploads/" });
+// const upload = multer({ storage: multer.memoryStorage() }); // Use memory storage
 
 function readCsv(filePath) {
   return new Promise((resolve, reject) => {
@@ -151,6 +171,9 @@ async function getRoadRouteDistance(origin, destination, originPincode) {
       routeCache.set(cacheKey, null);
       return null;
     }
+    if (!osrmLimit) {
+      await initializeRateLimiters();
+    }
 
     // Use rate limiter for OSRM API
     const response = await osrmLimit(() => axios.get(
@@ -197,6 +220,10 @@ async function getCoordinates(pincode) {
     if (cachedCoords) {
       console.log(`Using cached coordinates for ${pincode}`);
       return cachedCoords;
+    }
+
+    if (!nominatimLimit) {
+      await initializeRateLimiters();
     }
     
     // Use the rate limiter for Nominatim API
@@ -268,6 +295,10 @@ async function getDirectionsRoute(origin, destinations, originCoordinatesList) {
       `${origin.lng},${origin.lat}`,
       ...originCoordinatesList.map(dest => `${dest.lng},${dest.lat}`)
     ];
+
+    if (!osrmLimit) {
+      await initializeRateLimiters();
+    }
 
     // Use rate limiter for OSRM API
     const response = await osrmLimit(() => axios.get(
@@ -729,6 +760,7 @@ app.post("/optimize", upload.fields([
   { name: "goodsMaster", maxCount: 1 },
 ]), async (req, res) => {
   try {
+    initializeRateLimiters();
     console.log("Received optimization request");
     
     // Extract uploaded file paths
