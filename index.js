@@ -10,7 +10,6 @@ const { Worker, isMainThread, parentPort, workerData } = require('worker_threads
 const NodeCache = require('node-cache');
 const { promisify } = require('util');
 
-
 const app = express();
 const port = 5001;
 
