@@ -753,12 +753,9 @@ async function optimizeStopOrder(cluster) {
 
 let globalClusters = []; // Global variable to store clusters for map visualization
 
-app.post("/optimize", upload.fields([
-  { name: "deliveries", maxCount: 1 },
-  { name: "truckMaster", maxCount: 1 },
-  { name: "goodsMaster", maxCount: 1 },
-]), async (req, res) => {
+app.post("/optimize", async (req, res) => {
   try {
+    console.log('tettzxzzkjnaskd');return;
     initializeRateLimiters();
     console.log("Received optimization request");
     
