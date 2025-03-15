@@ -47,7 +47,7 @@ const initializeRateLimiters = async () => {
 
 
 app.use(express.static(path.join(__dirname, "public")));
-const upload = multer({ dest: "https://logistics-six-chi.vercel.app/uploads/" });
+const upload = multer({ dest: "uploads/" });
 // const upload = multer({ storage: multer.memoryStorage() }); // Use memory storage
 
 function readCsv(filePath) {
@@ -759,7 +759,7 @@ app.post("/optimize", upload.fields([
   { name: "goodsMaster", maxCount: 1 },
 ]), async (req, res) => {
   try {
-    console.log("Uploaded Files Details:", req.files);
+     console.log("Uploaded Files Details:", req.files);
     initializeRateLimiters();
     console.log("Received optimization request");
     
