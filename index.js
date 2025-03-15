@@ -47,7 +47,7 @@ const initializeRateLimiters = async () => {
 
 
 app.use(express.static(path.join(__dirname, "public")));
-const upload = multer({ dest: "uploads/" });
+const upload = multer({ dest: "tmp/" });
 // const upload = multer({ storage: multer.memoryStorage() }); // Use memory storage
 
 function readCsv(filePath) {
@@ -869,7 +869,7 @@ app.post("/optimize", upload.fields([
       .sort((a, b) => a.cluster_id - b.cluster_id);
     
     // Write optimized deliveries to CSV
-    const outputFilePath = path.join(__dirname, "uploads", "optimized_deliveries.csv");
+    const outputFilePath = path.join(__dirname, "tmp", "optimized_deliveries.csv");
     await writeCsv(outputFilePath, finalDeliveries);
     
     // Store clusters globally for map visualization
@@ -1022,7 +1022,7 @@ app.get('/get-optimized-clusters', async (req, res) => {
 app.get('/download-optimized-csv', async (req, res) => {
   try {
     // Read the original CSV file
-    const filePath = path.join(__dirname, "uploads", "optimized_deliveries.csv");
+    const filePath = path.join(__dirname, "tmp", "optimized_deliveries.csv");
     
     // Read the CSV file
     const originalDeliveries = await readCsv(filePath);
@@ -1034,7 +1034,7 @@ app.get('/download-optimized-csv', async (req, res) => {
     });
     
     // Create a new CSV file with filtered data
-    const outputFilePath = path.join(__dirname, "uploads", "filtered_optimized_deliveries.csv");
+    const outputFilePath = path.join(__dirname, "tmp", "filtered_optimized_deliveries.csv");
     await writeCsv(outputFilePath, filteredDeliveries);
     
     // Download the filtered CSV file
