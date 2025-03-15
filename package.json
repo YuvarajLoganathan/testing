@@ -29,6 +29,7 @@
   },
   "devDependencies": {
     "grunt": "^1.6.1",
+    "grunt-eslint": "^25.0.0",
     "nodemon": "^3.1.9"
   }
 }
