@@ -47,7 +47,7 @@ const initializeRateLimiters = async () => {
 
 
 app.use(express.static(path.join(__dirname, "public")));
-const upload = multer({ dest: "uploads/" });
+const upload = multer({ dest: "https://logistics-six-chi.vercel.app/uploads/" });
 // const upload = multer({ storage: multer.memoryStorage() }); // Use memory storage
 
 function readCsv(filePath) {
@@ -753,9 +753,13 @@ async function optimizeStopOrder(cluster) {
 
 let globalClusters = []; // Global variable to store clusters for map visualization
 
-app.post("/optimize", async (req, res) => {
+app.post("/optimize", upload.fields([
+  { name: "deliveries", maxCount: 1 },
+  { name: "truckMaster", maxCount: 1 },
+  { name: "goodsMaster", maxCount: 1 },
+]), async (req, res) => {
   try {
-    console.log('tettzxzzkjnaskd');return;
+    console.log("Uploaded Files Details:", req.files);
     initializeRateLimiters();
     console.log("Received optimization request");
     
